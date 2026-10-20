@@ -51,7 +51,7 @@
       box-shadow: 0 0 15px rgba(234, 179, 8, 0.6), inset 0 0 15px rgba(234, 179, 8, 0.4);
     }
 
-    /* Keep VR button styled & visible in custom UI if supported */
+    /* Style A-Frame VR Button */
     .a-enter-vr {
       position: fixed !important;
       bottom: 20px !important;
@@ -59,8 +59,8 @@
       z-index: 50 !important;
     }
 
-    /* Force canvas to fill viewport reliably */
-    a-scene, canvas.fallback-canvas {
+    /* Scene and canvas layout */
+    a-scene {
       width: 100vw !important;
       height: 100vh !important;
       display: block;
@@ -71,6 +71,12 @@
     }
 
     canvas.fallback-canvas {
+      width: 100vw !important;
+      height: 100vh !important;
+      display: none; /* Only visible if WebGL fails */
+      position: absolute;
+      top: 0;
+      left: 0;
       z-index: 0;
     }
   </style>
@@ -78,9 +84,9 @@
 <body class="bg-black text-white">
 
   <!-- HUD & UI OVERLAY CONTAINER -->
-  <div id="ui-container" class="absolute inset-0 z-10 pointer-events-none flex flex-col justify-between p-4 sm:p-6">
+  <div id="ui-container" class="absolute inset-0 z-20 pointer-events-none flex flex-col justify-between p-4 sm:p-6">
     
-    <!-- TOP BAR HUD WITH TIMER & LIVE SCORE -->
+    <!-- TOP BAR HUD WITH TIMER, LIVE SCORE & CONTROLS -->
     <div class="flex flex-wrap justify-between items-center w-full max-w-5xl mx-auto gap-3">
       
       <!-- STATUS DISPLAY -->
@@ -99,6 +105,12 @@
       <div class="bg-slate-900/90 backdrop-blur-md border border-pink-500/50 rounded-xl px-4 py-2 flex items-center gap-3 glow-box-pink">
         <span class="text-xs text-pink-400 font-bold uppercase tracking-wider">Score</span>
         <span id="hud-score" class="text-xs sm:text-sm font-bold text-pink-300 font-pixel">0</span>
+      </div>
+
+      <!-- CONTROLS HINT DISPLAY -->
+      <div class="bg-slate-900/90 backdrop-blur-md border border-pink-500/50 rounded-xl px-4 py-2 flex items-center gap-3 glow-box-pink">
+        <span class="text-xs text-pink-400 font-bold uppercase tracking-wider">Controls</span>
+        <span class="text-xs font-bold text-pink-300 font-pixel">A / D / VR GRAB</span>
       </div>
     </div>
 
@@ -123,6 +135,18 @@
 
       <div class="bg-slate-900/90 border border-slate-700 rounded-xl p-5 sm:p-6 mb-6 max-w-md w-full shadow-2xl text-left space-y-3">
         <div class="flex items-center justify-between text-sm">
+          <span class="text-gray-400">Move Left:</span>
+          <span class="px-2.5 py-1 bg-slate-800 border border-cyan-400 rounded text-cyan-300 font-mono font-bold">A / Left Arrow</span>
+        </div>
+        <div class="flex items-center justify-between text-sm">
+          <span class="text-gray-400">Move Right:</span>
+          <span class="px-2.5 py-1 bg-slate-800 border border-pink-400 rounded text-pink-300 font-mono font-bold">D / Right Arrow</span>
+        </div>
+        <div class="flex items-center justify-between text-sm">
+          <span class="text-gray-400">VR Control:</span>
+          <span class="px-2.5 py-1 bg-slate-800 border border-purple-400 rounded text-purple-300 font-mono font-bold">Grip & Drag Ship</span>
+        </div>
+        <div class="flex items-center justify-between text-sm pt-2 border-t border-slate-800">
           <span class="text-gray-400">Survival Time:</span>
           <span id="final-time" class="text-yellow-400 font-mono font-bold">00:00.0</span>
         </div>
@@ -132,14 +156,14 @@
         </div>
       </div>
 
-      <button id="start-btn" class="pointer-events-auto px-8 py-4 bg-gradient-to-r from-cyan-500 via-pink-500 to-purple-600 hover:from-cyan-400 hover:to-pink-400 text-white font-black text-xl rounded-full shadow-xl glow-box-pink transform hover:scale-105 active:scale-95 transition-all">
+      <button id="start-btn" class="pointer-events-auto px-8 py-4 bg-gradient-to-r from-cyan-500 via-pink-500 to-purple-600 hover:from-cyan-400 hover:to-pink-400 text-white font-black text-xl rounded-full shadow-xl glow-box-pink transform hover:scale-105 active:scale-95 transition-all cursor-pointer">
         START GAME
       </button>
     </div>
 
   </div>
 
-  <!-- FALLBACK CANVAS FOR DIRECT RENDER IF WEBGL/AFRAME Context Fails -->
+  <!-- FALLBACK CANVAS FOR DIRECT 2D RENDER IF WEBGL FAILS -->
   <canvas id="fallback-canvas" class="fallback-canvas"></canvas>
 
   <!-- A-FRAME 3D SCENE -->
@@ -177,22 +201,20 @@
 
     <!-- MAIN PLATFORM (FLOOR WHERE PLAYER MOVES) -->
     <a-entity id="platform-group" position="0 -2.5 0">
-      <!-- Top Neon Glowing Rail -->
-      <a-box position="0 0.5 0" width="14" height="0.15" depth="0.5" color="#00ffff" material="emissive: #00ffff; emissiveIntensity: 0.9"></a-box>
       <!-- Platform Base -->
-      <a-box id="platform-mesh" position="0 -0.5 0" width="14" height="1" depth="2" color="#1a0c3b"></a-box>
+      <a-box id="platform-mesh" position="0 -0.5 0" width="12" height="1" depth="2" color="#1a0c3b"></a-box>
       <!-- Left & Right Boundary Pillars -->
-      <a-box position="-6.5 1 0" width="0.3" height="2" depth="0.5" color="#ff007f" material="emissive: #ff007f; emissiveIntensity: 0.8"></a-box>
-      <a-box position="6.5 1 0" width="0.3" height="2" depth="0.5" color="#ff007f" material="emissive: #ff007f; emissiveIntensity: 0.8"></a-box>
+      <a-box position="-5.2 1 0" width="0.3" height="2" depth="0.5" color="#ff007f" material="emissive: #ff007f; emissiveIntensity: 0.8"></a-box>
+      <a-box position="5.2 1 0" width="0.3" height="2" depth="0.5" color="#ff007f" material="emissive: #ff007f; emissiveIntensity: 0.8"></a-box>
     </a-entity>
 
-    <!-- PLAYER CHARACTER WITH VR INTERACTION CLASS -->
+    <!-- PLAYER CHARACTER -->
     <a-entity id="player" class="grabbable" position="0 -1.75 0">
       <a-cone radius-bottom="0.5" radius-top="0.05" height="1.2" color="#00ffff" material="emissive: #00ffff; emissiveIntensity: 0.7; roughness: 0.2">
         <a-sphere radius="0.22" position="0 0.2 0" color="#ffffff" material="emissive: #ffffff; emissiveIntensity: 1"></a-sphere>
         <a-light type="point" color="#00ffff" intensity="3" distance="3" position="0 -0.2 0"></a-light>
       </a-cone>
-      <!-- Invisible enlarged collider box for easier grabbing in VR -->
+      <!-- Invisible enlarged collider box for easy grabbing in VR -->
       <a-box position="0 0 0" width="1.5" height="1.8" depth="1.5" visible="false"></a-box>
     </a-entity>
   </a-scene>
@@ -213,7 +235,7 @@
         }
       },
       playMoveSound() {
-        if (!this.ctx) return;
+        if (!this.ctx || this.ctx.state !== 'running') return;
         try {
           const osc = this.ctx.createOscillator();
           const gain = this.ctx.createGain();
@@ -229,7 +251,7 @@
         } catch(e) {}
       },
       playHitSound() {
-        if (!this.ctx) return;
+        if (!this.ctx || this.ctx.state !== 'running') return;
         try {
           const osc = this.ctx.createOscillator();
           const gain = this.ctx.createGain();
@@ -247,27 +269,37 @@
     };
 
     // --- GAME CONSTANTS & STATE ---
-    const BOUNDS_X = 6.0;
+    const BOUNDS_X = 4.5;
     const PLAYER_SPEED = 12.0;
+
+    const SPHERE_COLORS = [
+      '#ff007f', // Pink
+      '#00ffff', // Cyan
+      '#9d00ff', // Purple
+      '#ffee00', // Yellow
+      '#ff3300', // Neon Red
+      '#00ff66'  // Green
+    ];
 
     let active = false;
     let lastTime = performance.now();
     let playerX = 0;
     let score = 0;
-    let survivalTimer = 0; // Timer in seconds
+    let survivalTimer = 0;
     let spawnTimer = 0;
     let spawnInterval = 1.0;
     let obstacles = [];
+    let isFallbackMode = false;
 
-    // VR Interaction State
-    let activeVrController = null; // Controller currently grabbing the ship
+    // VR Controller State
+    let activeVrController = null;
 
     // Control inputs
     const keys = { KeyA: false, KeyD: false, ArrowLeft: false, ArrowRight: false };
     let touchLeft = false;
     let touchRight = false;
 
-    // Entity & DOM References
+    // DOM References
     const playerEl = document.getElementById('player');
     const obstacleContainer = document.getElementById('obstacle-container');
     const startOverlay = document.getElementById('start-overlay');
@@ -283,35 +315,21 @@
     const fallbackCanvas = document.getElementById('fallback-canvas');
     const ctx2d = fallbackCanvas.getContext('2d');
 
-    // Resize fallback canvas
-    function resizeFallbackCanvas() {
-      fallbackCanvas.width = window.innerWidth;
-      fallbackCanvas.height = window.innerHeight;
-    }
-    window.addEventListener('resize', resizeFallbackCanvas);
-    resizeFallbackCanvas();
-
-    // --- FORMAT TIME HELPER (MM:SS.ms) ---
+    // Time Formatter (MM:SS.ms)
     function formatTime(seconds) {
       const mins = Math.floor(seconds / 60);
       const secs = Math.floor(seconds % 60);
       const ms = Math.floor((seconds % 1) * 10);
-      const padMins = String(mins).padStart(2, '0');
-      const padSecs = String(secs).padStart(2, '0');
-      return `${padMins}:${padSecs}.${ms}`;
+      return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${ms}`;
     }
 
-    // --- INPUT EVENT LISTENERS ---
+    // Input Events
     window.addEventListener('keydown', (e) => {
-      if (e.code in keys) {
-        keys[e.code] = true;
-      }
+      if (e.code in keys) keys[e.code] = true;
     });
 
     window.addEventListener('keyup', (e) => {
-      if (e.code in keys) {
-        keys[e.code] = false;
-      }
+      if (e.code in keys) keys[e.code] = false;
     });
 
     const setupTouchBtn = (btn, setTouch) => {
@@ -327,36 +345,13 @@
     setupTouchBtn(btnLeft, (v) => touchLeft = v);
     setupTouchBtn(btnRight, (v) => touchRight = v);
 
-    // --- VR CONTROLLER INTERACTIONS ---
+    // Setup VR Controller Interaction
     function setupVRController(controllerEl) {
-      const grabStart = (e) => {
+      if (!controllerEl) return;
+      const grabStart = () => {
         audio.init();
         if (!active) return;
-
-        // Check raycaster intersection if available
-        const raycaster = controllerEl.components.raycaster;
-        let isHittingPlayer = false;
-
-        if (raycaster && raycaster.intersections) {
-          isHittingPlayer = raycaster.intersections.some(hit => {
-            return hit.object && (hit.object.el === playerEl || playerEl.contains(hit.object.el));
-          });
-        }
-
-        // Proximity check in 3D world space as fallback
-        if (!isHittingPlayer && controllerEl.object3D) {
-          const ctrlPos = new THREE.Vector3();
-          controllerEl.object3D.getWorldPosition(ctrlPos);
-          const dx = ctrlPos.x - playerX;
-          const dy = ctrlPos.y - (-1.75);
-          if (Math.abs(dx) < 2.5 && Math.abs(dy) < 2.5) {
-            isHittingPlayer = true;
-          }
-        }
-
-        if (isHittingPlayer) {
-          activeVrController = controllerEl;
-        }
+        activeVrController = controllerEl;
       };
 
       const grabEnd = () => {
@@ -365,22 +360,17 @@
         }
       };
 
-      // Listen for trigger and grip events across standard XR controllers
       controllerEl.addEventListener('triggerdown', grabStart);
       controllerEl.addEventListener('triggerup', grabEnd);
       controllerEl.addEventListener('gripdown', grabStart);
       controllerEl.addEventListener('gripup', grabEnd);
-      controllerEl.addEventListener('squeezedown', grabStart);
-      controllerEl.addEventListener('squeezeup', grabEnd);
     }
 
-    const leftHand = document.getElementById('left-hand');
-    const rightHand = document.getElementById('right-hand');
-    if (leftHand) setupVRController(leftHand);
-    if (rightHand) setupVRController(rightHand);
+    setupVRController(document.getElementById('left-hand'));
+    setupVRController(document.getElementById('right-hand'));
 
     function resetGame() {
-      // Clear obstacles
+      // Clear 3D obstacles
       obstacles.forEach(obs => {
         if (obs.el && obs.el.parentNode) {
           obs.el.parentNode.removeChild(obs.el);
@@ -402,6 +392,7 @@
       }
     }
 
+    // Reliable Start Game Trigger
     startBtn.addEventListener('click', () => {
       audio.init();
       resetGame();
@@ -415,15 +406,16 @@
     function spawnObstacle() {
       const spawnX = (Math.random() - 0.5) * (BOUNDS_X * 2);
       const speed = 5.0 + Math.random() * 3.0 + Math.min(score * 0.05, 6.0);
-      const radius = 0.4 + Math.random() * 0.25;
-      const spawnY = 6.0;
+      const radius = 0.35 + Math.random() * 0.2;
+      const spawnY = 5.2;
+      const color = SPHERE_COLORS[Math.floor(Math.random() * SPHERE_COLORS.length)];
 
       let el = null;
-      if (obstacleContainer && obstacleContainer.sceneEl) {
+      if (!isFallbackMode && obstacleContainer && obstacleContainer.sceneEl) {
         el = document.createElement('a-sphere');
         el.setAttribute('radius', radius);
-        el.setAttribute('color', '#ff007f');
-        el.setAttribute('material', 'emissive: #ff007f; emissiveIntensity: 0.8');
+        el.setAttribute('color', color);
+        el.setAttribute('material', `emissive: ${color}; emissiveIntensity: 0.8`);
         el.setAttribute('position', `${spawnX} ${spawnY} 0`);
         obstacleContainer.appendChild(el);
       }
@@ -433,6 +425,7 @@
         y: spawnY,
         speed: speed,
         radius: radius,
+        color: color,
         el: el
       });
     }
@@ -441,104 +434,66 @@
       audio.playHitSound();
       active = false;
       statusValEl.textContent = 'GAME OVER';
-      overlaySubtitle.textContent = `Collision detected! You survived for ${survivalTimer.toFixed(1)}s and reached ${Math.floor(score)} points.`;
+      overlaySubtitle.textContent = `Collision detected! You survived ${survivalTimer.toFixed(1)}s and reached ${Math.floor(score)} points.`;
       scoreDisplay.textContent = Math.floor(score);
       finalTimeEl.textContent = formatTime(survivalTimer);
       startBtn.textContent = 'RESTART GAME';
       startOverlay.classList.remove('hidden');
     }
 
-    // Render 2D Fallback frame (guarantees visuals even if WebGL fails)
+    // 2D Fallback renderer
     function drawFallbackFrame() {
-      const w = fallbackCanvas.width;
-      const h = fallbackCanvas.height;
+      if (!isFallbackMode) return;
+      fallbackCanvas.style.display = 'block';
 
-      // Background
+      const w = fallbackCanvas.width = window.innerWidth;
+      const h = fallbackCanvas.height = window.innerHeight;
+
       ctx2d.fillStyle = '#08041d';
       ctx2d.fillRect(0, 0, w, h);
 
-      // Grid Lines
-      ctx2d.strokeStyle = 'rgba(255, 0, 127, 0.2)';
-      ctx2d.lineWidth = 1;
-      for (let x = 0; x < w; x += 40) {
-        ctx2d.beginPath();
-        ctx2d.moveTo(x, 0);
-        ctx2d.lineTo(x, h);
-        ctx2d.stroke();
-      }
-
-      // Platform
       const platY = h * 0.75;
-      const platW = w * 0.8;
+      const platW = w * 0.7;
       const platX = (w - platW) / 2;
 
       ctx2d.fillStyle = '#1a0c3b';
       ctx2d.fillRect(platX, platY, platW, 40);
 
-      // Neon Platform Rail
-      ctx2d.fillStyle = '#00ffff';
-      ctx2d.shadowColor = '#00ffff';
-      ctx2d.shadowBlur = 10;
-      ctx2d.fillRect(platX, platY - 4, platW, 8);
-
-      // Side Pillars
-      ctx2d.fillStyle = '#ff007f';
-      ctx2d.shadowColor = '#ff007f';
-      ctx2d.fillRect(platX - 10, platY - 60, 15, 100);
-      ctx2d.fillRect(platX + platW - 5, platY - 60, 15, 100);
-
-      // Map player position (-6 to +6) to canvas pixel width
       const normX = (playerX + BOUNDS_X) / (BOUNDS_X * 2);
       const playerPixelX = platX + normX * platW;
       const playerPixelY = platY - 5;
 
-      // Draw Player Triangle
       ctx2d.fillStyle = '#00ffff';
-      ctx2d.shadowColor = '#00ffff';
-      ctx2d.shadowBlur = 15;
       ctx2d.beginPath();
-      ctx2d.moveTo(playerPixelX, playerPixelY - 40);
-      ctx2d.lineTo(playerPixelX - 20, playerPixelY);
-      ctx2d.lineTo(playerPixelX + 20, playerPixelY);
+      ctx2d.moveTo(playerPixelX, playerPixelY - 35);
+      ctx2d.lineTo(playerPixelX - 18, playerPixelY);
+      ctx2d.lineTo(playerPixelX + 18, playerPixelY);
       ctx2d.closePath();
       ctx2d.fill();
 
-      // Core sphere
-      ctx2d.fillStyle = '#ffffff';
-      ctx2d.beginPath();
-      ctx2d.arc(playerPixelX, playerPixelY - 20, 8, 0, Math.PI * 2);
-      ctx2d.fill();
-
-      // Draw Falling Obstacles
       obstacles.forEach(obs => {
         const normObsX = (obs.x + BOUNDS_X) / (BOUNDS_X * 2);
         const obsPixelX = platX + normObsX * platW;
-        // Map y from world space (top=6, bottom=-2.5) to screen space
-        const normObsY = (6.0 - obs.y) / 8.5;
-        const obsPixelY = (platY - 200) + normObsY * 200;
+        const normObsY = (5.2 - obs.y) / 7.2;
+        const obsPixelY = (platY - 220) + normObsY * 220;
 
-        ctx2d.fillStyle = '#ff007f';
-        ctx2d.shadowColor = '#ff007f';
-        ctx2d.shadowBlur = 12;
+        ctx2d.fillStyle = obs.color;
         ctx2d.beginPath();
         ctx2d.arc(obsPixelX, obsPixelY, obs.radius * 25, 0, Math.PI * 2);
         ctx2d.fill();
       });
-
-      ctx2d.shadowBlur = 0;
     }
 
-    // --- MAIN TICK LOOP ---
+    // Main Game Loop
     function gameLoop(time) {
       if (!active) return;
 
       const dt = Math.min((time - lastTime) / 1000, 0.1);
       lastTime = time;
 
-      // Player Movement Logic
       let moveDir = 0;
 
-      // 1. VR Controller Drag Handling
+      // VR Drag Control
       if (activeVrController && activeVrController.object3D) {
         const worldPos = new THREE.Vector3();
         activeVrController.object3D.getWorldPosition(worldPos);
@@ -548,7 +503,7 @@
         }
         playerX = targetX;
       } else {
-        // 2. Keyboard & Touch Controls
+        // Keyboard & Touch Controls
         if (keys.KeyA || keys.ArrowLeft || touchLeft) moveDir -= 1;
         if (keys.KeyD || keys.ArrowRight || touchRight) moveDir += 1;
 
@@ -559,21 +514,17 @@
         }
       }
 
-      // Update A-Frame Entity position if loaded
       if (playerEl) {
         playerEl.setAttribute('position', `${playerX} -1.75 0`);
         playerEl.setAttribute('rotation', `0 0 ${-moveDir * 15}`);
       }
 
-      // Timer & Score Accumulation
       survivalTimer += dt;
       score += dt * 15;
 
-      // Update HUD elements
       hudTimerEl.textContent = formatTime(survivalTimer);
       hudScoreEl.textContent = Math.floor(score).toString();
 
-      // Obstacle Spawning Logic
       spawnTimer += dt;
       spawnInterval = Math.max(0.25, 1.0 - survivalTimer * 0.015);
 
@@ -582,7 +533,6 @@
         spawnObstacle();
       }
 
-      // Update Falling Obstacles & Check Collisions
       const playerY = -1.75;
       for (let i = obstacles.length - 1; i >= 0; i--) {
         const obs = obstacles[i];
@@ -592,7 +542,6 @@
           obs.el.setAttribute('position', `${obs.x} ${obs.y} 0`);
         }
 
-        // Collision Check
         const dx = playerX - obs.x;
         const dy = playerY - obs.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
@@ -602,8 +551,7 @@
           return;
         }
 
-        // Remove obstacles that fall past the platform
-        if (obs.y < -3.5) {
+        if (obs.y < -2.2) {
           if (obs.el && obs.el.parentNode) {
             obs.el.parentNode.removeChild(obs.el);
           }
@@ -611,14 +559,17 @@
         }
       }
 
-      // Render 2D fallback continuously
       drawFallbackFrame();
-
       requestAnimationFrame(gameLoop);
     }
 
-    // Initial background draw before game starts
-    drawFallbackFrame();
+    // Check scene initialization & fallback setup
+    const sceneEl = document.querySelector('a-scene');
+    if (sceneEl) {
+      sceneEl.addEventListener('render-error', () => {
+        isFallbackMode = true;
+      });
+    }
   </script>
 </body>
 </html>
