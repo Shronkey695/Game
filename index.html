@@ -180,33 +180,33 @@
 <body class="bg-black text-white">
 
   <!-- HUD & UI OVERLAY CONTAINER (FOR 2D FLAT SCREEN MODE) -->
-  <div id="ui-container" class="absolute inset-0 z-20 pointer-events-none flex flex-col justify-between p-4 sm:p-6 transition-opacity duration-300">
+  <div id="ui-container" class="absolute inset-0 z-20 pointer-events-none flex flex-col justify-between p-2 sm:p-6 transition-opacity duration-300">
     
     <!-- TOP BAR HUD WITH TIMER, LIVE SCORE & CONTROLS -->
-    <div class="flex flex-wrap justify-between items-center w-full max-w-5xl mx-auto gap-3">
+    <div class="flex flex-row items-center justify-between w-full max-w-6xl mx-auto px-1 sm:px-2 gap-1 sm:gap-3 flex-nowrap">
       
       <!-- STATUS DISPLAY -->
-      <div class="bg-slate-900/90 backdrop-blur-md border border-cyan-500/50 rounded-xl px-4 py-2 flex items-center gap-3 glow-box-cyan">
-        <span class="text-xs text-cyan-400 font-bold uppercase tracking-wider">Status</span>
-        <span id="status-val" class="text-xs sm:text-sm font-bold text-cyan-300 font-pixel">READY</span>
+      <div class="bg-slate-900/90 backdrop-blur-md border border-cyan-500/50 rounded-lg sm:rounded-xl px-2 py-1 sm:px-3 sm:py-1.5 flex items-center gap-1.5 sm:gap-2 glow-box-cyan whitespace-nowrap min-w-0">
+        <span class="text-[9px] sm:text-xs text-cyan-400 font-bold uppercase tracking-wider">Status</span>
+        <span id="status-val" class="text-[10px] sm:text-xs font-bold text-cyan-300 font-pixel truncate">READY</span>
       </div>
 
       <!-- TIMER DISPLAY -->
-      <div class="bg-slate-900/90 backdrop-blur-md border border-yellow-500/50 rounded-xl px-4 py-2 flex items-center gap-3 glow-box-yellow">
-        <span class="text-xs text-yellow-400 font-bold uppercase tracking-wider">Time</span>
-        <span id="hud-timer" class="text-xs sm:text-sm font-bold text-yellow-300 font-pixel">00:00.0</span>
+      <div class="bg-slate-900/90 backdrop-blur-md border border-yellow-500/50 rounded-lg sm:rounded-xl px-2 py-1 sm:px-3 sm:py-1.5 flex items-center gap-1.5 sm:gap-2 glow-box-yellow whitespace-nowrap min-w-0">
+        <span class="text-[9px] sm:text-xs text-yellow-400 font-bold uppercase tracking-wider">Time</span>
+        <span id="hud-timer" class="text-[10px] sm:text-xs font-bold text-yellow-300 font-pixel truncate">00:00.0</span>
       </div>
 
       <!-- LIVE SCORE DISPLAY -->
-      <div class="bg-slate-900/90 backdrop-blur-md border border-pink-500/50 rounded-xl px-4 py-2 flex items-center gap-3 glow-box-pink">
-        <span class="text-xs text-pink-400 font-bold uppercase tracking-wider">Score</span>
-        <span id="hud-score" class="text-xs sm:text-sm font-bold text-pink-300 font-pixel">0</span>
+      <div class="bg-slate-900/90 backdrop-blur-md border border-pink-500/50 rounded-lg sm:rounded-xl px-2 py-1 sm:px-3 sm:py-1.5 flex items-center gap-1.5 sm:gap-2 glow-box-pink whitespace-nowrap min-w-0">
+        <span class="text-[9px] sm:text-xs text-pink-400 font-bold uppercase tracking-wider">Score</span>
+        <span id="hud-score" class="text-[10px] sm:text-xs font-bold text-pink-300 font-pixel truncate">0</span>
       </div>
 
       <!-- CONTROLS HINT DISPLAY -->
-      <div class="bg-slate-900/90 backdrop-blur-md border border-pink-500/50 rounded-xl px-4 py-2 flex items-center gap-3 glow-box-pink">
-        <span class="text-xs text-pink-400 font-bold uppercase tracking-wider">Controls</span>
-        <span class="text-xs font-bold text-pink-300 font-pixel">DRAG / A-D / VR THUMBSTICK</span>
+      <div class="bg-slate-900/90 backdrop-blur-md border border-pink-500/50 rounded-lg sm:rounded-xl px-2 py-1 sm:px-3 sm:py-1.5 flex items-center gap-1.5 sm:gap-2 glow-box-pink whitespace-nowrap min-w-0">
+        <span class="text-[9px] sm:text-xs text-pink-400 font-bold uppercase tracking-wider hidden xs:inline">Controls</span>
+        <span class="text-[9px] sm:text-xs font-bold text-pink-300 font-pixel truncate">DRAG / A-D</span>
       </div>
     </div>
 
@@ -268,7 +268,7 @@
     <!-- CAMERA RIG WITH VR CONTROLLERS & Spatial 3D HUD -->
     <a-entity id="camera-rig" position="0 0 10">
       
-      <!-- MAIN CAMERA WITH CURSOR FOR GAZE/CLICK INTERACTION IN VR -->
+      <!-- MAIN CAMERA WITH INVISIBLE CURSOR FOR GAZE/CLICK INTERACTION IN VR -->
       <a-camera id="main-camera" look-controls="enabled: true" wasd-controls="enabled: false" fov="50">
         <a-entity cursor="fuse: false; rayOrigin: mouse" raycaster="objects: .clickable, .grabbable"></a-entity>
       </a-camera>
@@ -291,11 +291,8 @@
                 vr-grab-steer>
       </a-entity>
 
-      <!-- IN-VR SPATIAL 3D HUD PANEL (ATTACHED TO RIG FRONT FOR EASY VIEWING) -->
+      <!-- IN-VR SPATIAL 3D HUD PANEL (CLEAN NO-BACKGROUND TEXT FOR HYPER CLEAR VIEW) -->
       <a-entity id="vr-hud-panel" position="0 2.2 -3.5" rotation="10 0 0">
-        <!-- HUD Background Plate -->
-        <a-plane width="3.2" height="0.7" color="#090526" material="opacity: 0.85; transparent: true; shader: flat" border="0.05 #ff007f"></a-plane>
-        
         <!-- Live VR Status Text -->
         <a-entity id="vr-status-text" position="-1.2 0.12 0.02" text="value: STATUS: READY; color: #00ffff; width: 3.5; align: left; font: align; bold: true"></a-entity>
         
@@ -439,7 +436,6 @@
     const hudScoreEl = document.getElementById('hud-score');
     const hudTimerEl = document.getElementById('hud-timer');
     const startBtn = document.getElementById('start-btn');
-    const statusValEl = document.getElementById('status-val');
     const btnLeft = document.getElementById('btn-left');
     const btnRight = document.getElementById('btn-right');
     const fallbackCanvas = document.getElementById('fallback-canvas');
@@ -543,7 +539,6 @@
       startOverlay.classList.add('hidden');
       if (vrMenuPanel) vrMenuPanel.setAttribute('visible', 'false');
 
-      statusValEl.textContent = 'ACTIVE';
       if (vrStatusText) vrStatusText.setAttribute('text', 'value', 'STATUS: ACTIVE');
 
       window.gameState.active = true;
@@ -588,7 +583,6 @@
       window.gameState.active = false;
       isPointerDragging = false;
 
-      statusValEl.textContent = 'GAME OVER';
       if (vrStatusText) vrStatusText.setAttribute('text', 'value', 'STATUS: GAME OVER');
 
       overlaySubtitle.textContent = `Collision detected! You survived ${window.gameState.survivalTimer.toFixed(1)}s and reached ${Math.floor(window.gameState.score)} points.`;
