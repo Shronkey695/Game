@@ -6,8 +6,103 @@
   <title>Synthwave Dodge: Arcade Survival VR</title>
   <!-- A-Frame Library -->
   <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-  <!-- Tailwind CSS for UI Overlay -->
+  <!-- Tailwind CSS for 2D UI Overlay -->
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <script>
+    // =========================================================================
+    // A-FRAME CUSTOM COMPONENTS (REGISTERED BEFORE SCENE INITIALIZATION)
+    // =========================================================================
+
+    // Dynamic 3D Curved/Flat Text Update Helper
+    AFRAME.registerComponent('vr-hud-updater', {
+      schema: { type: 'string', default: '' },
+      update: function () {
+        this.el.setAttribute('text', 'value', this.data);
+      }
+    });
+
+    // VR Thumbstick & Trigger Direct Steer Component
+    AFRAME.registerComponent('vr-grab-steer', {
+      init: function () {
+        this.isGrabbing = false;
+        this.thumbstickX = 0;
+
+        // Trigger / Grip listeners for hand grab dragging
+        const onGrabStart = () => {
+          if (window.audio) window.audio.init();
+          if (window.gameState && window.gameState.active) {
+            this.isGrabbing = true;
+          }
+        };
+
+        const onGrabEnd = () => {
+          this.isGrabbing = false;
+        };
+
+        this.el.addEventListener('triggerdown', onGrabStart);
+        this.el.addEventListener('triggerup', onGrabEnd);
+        this.el.addEventListener('gripdown', onGrabStart);
+        this.el.addEventListener('gripup', onGrabEnd);
+
+        // Thumbstick / Axis Move listener for stick steering in VR
+        this.el.addEventListener('axismove', (e) => {
+          // Axis 0 is typically horizontal thumbstick / trackpad
+          if (e.detail.axis && e.detail.axis.length >= 2) {
+            const axisX = e.detail.axis[0] || e.detail.axis[2] || 0;
+            if (Math.abs(axisX) > 0.15) {
+              this.thumbstickX = axisX;
+            } else {
+              this.thumbstickX = 0;
+            }
+          }
+        });
+      },
+      tick: function (time, timeDelta) {
+        if (!window.gameState || !window.gameState.active) return;
+
+        const dt = Math.min(timeDelta / 1000, 0.1);
+
+        // 1. Hand Position Direct Grab Steering
+        if (this.isGrabbing) {
+          const worldPos = new THREE.Vector3();
+          this.el.object3D.getWorldPosition(worldPos);
+          const targetX = Math.max(-window.BOUNDS_X, Math.min(window.BOUNDS_X, worldPos.x));
+          if (Math.abs(targetX - window.gameState.playerX) > 0.05) {
+            if (window.audio) window.audio.playMoveSound();
+          }
+          window.gameState.playerX = targetX;
+        }
+
+        // 2. Thumbstick Steering
+        if (Math.abs(this.thumbstickX) > 0.15 && !this.isGrabbing) {
+          const moveDelta = this.thumbstickX * window.PLAYER_SPEED * dt;
+          window.gameState.playerX = Math.max(-window.BOUNDS_X, Math.min(window.BOUNDS_X, window.gameState.playerX + moveDelta));
+          if (window.audio) window.audio.playMoveSound();
+        }
+      }
+    });
+
+    // VR 3D Button Interactivity Component
+    AFRAME.registerComponent('vr-button-click', {
+      init: function () {
+        const el = this.el;
+        el.addEventListener('mouseenter', () => {
+          el.setAttribute('scale', '1.1 1.1 1.1');
+        });
+        el.addEventListener('mouseleave', () => {
+          el.setAttribute('scale', '1 1 1');
+        });
+        el.addEventListener('click', () => {
+          if (window.audio) window.audio.init();
+          if (window.startOrRestartGame) {
+            window.startOrRestartGame();
+          }
+        });
+      }
+    });
+  </script>
+
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Orbitron:wght@400;700;900&display=swap');
 
@@ -60,7 +155,7 @@
       z-index: 50 !important;
     }
 
-    /* Scene and canvas layout */
+    /* Scene layout */
     a-scene {
       width: 100vw !important;
       height: 100vh !important;
@@ -74,7 +169,7 @@
     canvas.fallback-canvas {
       width: 100vw !important;
       height: 100vh !important;
-      display: none; /* Only visible if WebGL fails */
+      display: none; /* Visible if WebGL fails */
       position: absolute;
       top: 0;
       left: 0;
@@ -84,8 +179,8 @@
 </head>
 <body class="bg-black text-white">
 
-  <!-- HUD & UI OVERLAY CONTAINER -->
-  <div id="ui-container" class="absolute inset-0 z-20 pointer-events-none flex flex-col justify-between p-4 sm:p-6">
+  <!-- HUD & UI OVERLAY CONTAINER (FOR 2D FLAT SCREEN MODE) -->
+  <div id="ui-container" class="absolute inset-0 z-20 pointer-events-none flex flex-col justify-between p-4 sm:p-6 transition-opacity duration-300">
     
     <!-- TOP BAR HUD WITH TIMER, LIVE SCORE & CONTROLS -->
     <div class="flex flex-wrap justify-between items-center w-full max-w-5xl mx-auto gap-3">
@@ -111,7 +206,7 @@
       <!-- CONTROLS HINT DISPLAY -->
       <div class="bg-slate-900/90 backdrop-blur-md border border-pink-500/50 rounded-xl px-4 py-2 flex items-center gap-3 glow-box-pink">
         <span class="text-xs text-pink-400 font-bold uppercase tracking-wider">Controls</span>
-        <span class="text-xs font-bold text-pink-300 font-pixel">DRAG / A-D / VR GRAB</span>
+        <span class="text-xs font-bold text-pink-300 font-pixel">DRAG / A-D / VR THUMBSTICK</span>
       </div>
     </div>
 
@@ -145,7 +240,7 @@
         </div>
         <div class="flex items-center justify-between text-sm">
           <span class="text-gray-400">VR Control:</span>
-          <span class="px-2.5 py-1 bg-slate-800 border border-purple-400 rounded text-purple-300 font-mono font-bold">Trigger/Grip & Drag Ship</span>
+          <span class="px-2.5 py-1 bg-slate-800 border border-purple-400 rounded text-purple-300 font-mono font-bold">Thumbstick / Drag Ship</span>
         </div>
         <div class="flex items-center justify-between text-sm pt-2 border-t border-slate-800">
           <span class="text-gray-400">Survival Time:</span>
@@ -169,14 +264,19 @@
 
   <!-- A-FRAME 3D SCENE -->
   <a-scene id="main-scene" embedded vr-mode-ui="enabled: true">
-    <!-- CAMERA RIG WITH VR CONTROLLERS -->
+    
+    <!-- CAMERA RIG WITH VR CONTROLLERS & Spatial 3D HUD -->
     <a-entity id="camera-rig" position="0 0 10">
-      <a-camera id="main-camera" look-controls="enabled: false" wasd-controls="enabled: false" fov="50"></a-camera>
+      
+      <!-- MAIN CAMERA WITH CURSOR FOR GAZE/CLICK INTERACTION IN VR -->
+      <a-camera id="main-camera" look-controls="enabled: true" wasd-controls="enabled: false" fov="50">
+        <a-entity cursor="fuse: false; rayOrigin: mouse" raycaster="objects: .clickable, .grabbable"></a-entity>
+      </a-camera>
 
       <!-- LEFT VR CONTROLLER -->
       <a-entity id="left-hand" 
                 laser-controls="hand: left" 
-                raycaster="objects: .grabbable; far: 25"
+                raycaster="objects: .clickable, .grabbable; far: 25"
                 oculus-touch-controls="hand: left"
                 vive-controls="hand: left"
                 vr-grab-steer>
@@ -185,11 +285,35 @@
       <!-- RIGHT VR CONTROLLER -->
       <a-entity id="right-hand" 
                 laser-controls="hand: right" 
-                raycaster="objects: .grabbable; far: 25"
+                raycaster="objects: .clickable, .grabbable; far: 25"
                 oculus-touch-controls="hand: right"
                 vive-controls="hand: right"
                 vr-grab-steer>
       </a-entity>
+
+      <!-- IN-VR SPATIAL 3D HUD PANEL (ATTACHED TO RIG FRONT FOR EASY VIEWING) -->
+      <a-entity id="vr-hud-panel" position="0 2.2 -3.5" rotation="10 0 0">
+        <!-- HUD Background Plate -->
+        <a-plane width="3.2" height="0.7" color="#090526" material="opacity: 0.85; transparent: true; shader: flat" border="0.05 #ff007f"></a-plane>
+        
+        <!-- Live VR Status Text -->
+        <a-entity id="vr-status-text" position="-1.2 0.12 0.02" text="value: STATUS: READY; color: #00ffff; width: 3.5; align: left; font: align; bold: true"></a-entity>
+        
+        <!-- Live VR Score Text -->
+        <a-entity id="vr-score-text" position="0.2 0.12 0.02" text="value: SCORE: 0; color: #ff007f; width: 3.5; align: left; font: align; bold: true"></a-entity>
+        
+        <!-- Live VR Timer Text -->
+        <a-entity id="vr-timer-text" position="-1.2 -0.15 0.02" text="value: TIME: 00:00.0; color: #ffee00; width: 3.5; align: left; font: align; bold: true"></a-entity>
+      </a-entity>
+
+      <!-- IN-VR 3D START / RESTART BUTTON MENU -->
+      <a-entity id="vr-menu-panel" position="0 0.8 -3.0" rotation="-5 0 0">
+        <!-- Start/Restart Interactive Button Box -->
+        <a-plane id="vr-start-btn" class="clickable" vr-button-click width="1.8" height="0.5" color="#ff007f" material="shader: flat; emissive: #ff007f; emissiveIntensity: 0.5" position="0 0 0">
+          <a-text value="START GAME" align="center" position="0 0 0.02" width="4" color="#ffffff" bold="true"></a-text>
+        </a-plane>
+      </a-entity>
+
     </a-entity>
 
     <!-- LIGHTING -->
@@ -212,7 +336,7 @@
     </a-entity>
 
     <!-- PLAYER CHARACTER -->
-    <a-entity id="player" class="grabbable" position="0 -1.75 0">
+    <a-entity id="player" class="grabbable clickable" position="0 -1.75 0">
       <a-cone radius-bottom="0.5" radius-top="0.05" height="1.2" color="#00ffff" material="emissive: #00ffff; emissiveIntensity: 0.7; roughness: 0.2">
         <a-sphere radius="0.22" position="0 0.2 0" color="#ffffff" material="emissive: #ffffff; emissiveIntensity: 1"></a-sphere>
         <a-light type="point" color="#00ffff" intensity="3" distance="3" position="0 -0.2 0"></a-light>
@@ -224,14 +348,18 @@
 
   <script>
     // --- GLOBAL GAME STATE & CONSTANTS ---
-    const BOUNDS_X = 4.5;
-    const PLAYER_SPEED = 12.0;
+    window.BOUNDS_X = 4.5;
+    window.PLAYER_SPEED = 12.0;
 
-    let active = false;
+    window.gameState = {
+      active: false,
+      playerX: 0,
+      score: 0,
+      survivalTimer: 0,
+      isVR: false
+    };
+
     let lastTime = performance.now();
-    let playerX = 0;
-    let score = 0;
-    let survivalTimer = 0;
     let spawnTimer = 0;
     let spawnInterval = 1.0;
     let obstacles = [];
@@ -244,7 +372,7 @@
     let isPointerDragging = false;
 
     // --- WEB AUDIO SYNTHESIZER ---
-    const audio = {
+    window.audio = {
       ctx: null,
       init() {
         if (!this.ctx) {
@@ -291,43 +419,6 @@
       }
     };
 
-    // --- REGISTER A-FRAME VR COMPONENT FOR RELIABLE CONTROLLER GRAB/STEER ---
-    if (typeof AFRAME !== 'undefined') {
-      AFRAME.registerComponent('vr-grab-steer', {
-        init: function () {
-          this.isGrabbing = false;
-
-          const onGrabStart = () => {
-            audio.init();
-            if (!active) return;
-            this.isGrabbing = true;
-          };
-
-          const onGrabEnd = () => {
-            this.isGrabbing = false;
-          };
-
-          this.el.addEventListener('triggerdown', onGrabStart);
-          this.el.addEventListener('triggerup', onGrabEnd);
-          this.el.addEventListener('gripdown', onGrabStart);
-          this.el.addEventListener('gripup', onGrabEnd);
-        },
-        tick: function () {
-          if (this.isGrabbing && active) {
-            const worldPos = new THREE.Vector3();
-            this.el.object3D.getWorldPosition(worldPos);
-
-            // Map hand horizontal position directly to player target bounds
-            const targetX = Math.max(-BOUNDS_X, Math.min(BOUNDS_X, worldPos.x));
-            if (Math.abs(targetX - playerX) > 0.05) {
-              audio.playMoveSound();
-            }
-            playerX = targetX;
-          }
-        }
-      });
-    }
-
     const SPHERE_COLORS = [
       '#ff007f', // Pink
       '#00ffff', // Cyan
@@ -337,10 +428,11 @@
       '#00ff66'  // Green
     ];
 
-    // DOM Elements
+    // DOM & Scene Elements
     const playerEl = document.getElementById('player');
     const obstacleContainer = document.getElementById('obstacle-container');
     const startOverlay = document.getElementById('start-overlay');
+    const uiContainer = document.getElementById('ui-container');
     const overlaySubtitle = document.getElementById('overlay-subtitle');
     const scoreDisplay = document.getElementById('score-display');
     const finalTimeEl = document.getElementById('final-time');
@@ -352,6 +444,13 @@
     const btnRight = document.getElementById('btn-right');
     const fallbackCanvas = document.getElementById('fallback-canvas');
     const ctx2d = fallbackCanvas.getContext('2d');
+
+    // 3D VR HUD Elements
+    const vrStatusText = document.getElementById('vr-status-text');
+    const vrScoreText = document.getElementById('vr-score-text');
+    const vrTimerText = document.getElementById('vr-timer-text');
+    const vrMenuPanel = document.getElementById('vr-menu-panel');
+    const vrStartBtn = document.getElementById('vr-start-btn');
 
     // Time Formatter (MM:SS.ms)
     function formatTime(seconds) {
@@ -372,11 +471,11 @@
 
     // --- ON-SCREEN TOUCH BUTTON CONTROLS ---
     const setupTouchBtn = (btn, setTouch) => {
-      const start = (e) => { e.stopPropagation(); e.preventDefault(); setTouch(true); audio.init(); };
+      const start = (e) => { e.stopPropagation(); e.preventDefault(); setTouch(true); window.audio.init(); };
       const end = (e) => { e.stopPropagation(); e.preventDefault(); setTouch(false); };
       btn.addEventListener('touchstart', start, { passive: false });
       btn.addEventListener('touchend', end, { passive: false });
-      btn.addEventListener('mousedown', (e) => { e.stopPropagation(); setTouch(true); audio.init(); });
+      btn.addEventListener('mousedown', (e) => { e.stopPropagation(); setTouch(true); window.audio.init(); });
       btn.addEventListener('mouseup', (e) => { e.stopPropagation(); setTouch(false); });
       btn.addEventListener('mouseleave', (e) => { e.stopPropagation(); setTouch(false); });
     };
@@ -386,22 +485,22 @@
 
     // --- SCREEN TOUCH & MOUSE DIRECT STEERING / DRAGGING ---
     function updatePositionFromPointer(clientX) {
-      if (!active) return;
+      if (!window.gameState.active) return;
       const normalizedX = (clientX / window.innerWidth) * 2 - 1; // Map screen width to [-1, +1]
-      const targetX = normalizedX * BOUNDS_X;
-      playerX = Math.max(-BOUNDS_X, Math.min(BOUNDS_X, targetX));
-      audio.playMoveSound();
+      const targetX = normalizedX * window.BOUNDS_X;
+      window.gameState.playerX = Math.max(-window.BOUNDS_X, Math.min(window.BOUNDS_X, targetX));
+      window.audio.playMoveSound();
     }
 
     window.addEventListener('pointerdown', (e) => {
-      if (!active || e.target.closest('#start-overlay') || e.target.closest('#btn-left') || e.target.closest('#btn-right')) return;
+      if (!window.gameState.active || e.target.closest('#start-overlay') || e.target.closest('#btn-left') || e.target.closest('#btn-right')) return;
       isPointerDragging = true;
-      audio.init();
+      window.audio.init();
       updatePositionFromPointer(e.clientX);
     });
 
     window.addEventListener('pointermove', (e) => {
-      if (isPointerDragging && active) {
+      if (isPointerDragging && window.gameState.active) {
         updatePositionFromPointer(e.clientX);
       }
     });
@@ -410,6 +509,7 @@
     window.addEventListener('pointerup', stopPointerDrag);
     window.addEventListener('pointercancel', stopPointerDrag);
 
+    // Reset Game State
     function resetGame() {
       // Clear 3D obstacles
       obstacles.forEach(obs => {
@@ -418,9 +518,9 @@
         }
       });
       obstacles = [];
-      playerX = 0;
-      score = 0;
-      survivalTimer = 0;
+      window.gameState.playerX = 0;
+      window.gameState.score = 0;
+      window.gameState.survivalTimer = 0;
       spawnTimer = 0;
       spawnInterval = 1.0;
       isPointerDragging = false;
@@ -428,26 +528,37 @@
       hudScoreEl.textContent = "0";
       hudTimerEl.textContent = "00:00.0";
 
+      if (vrScoreText) vrScoreText.setAttribute('text', 'value', 'SCORE: 0');
+      if (vrTimerText) vrTimerText.setAttribute('text', 'value', 'TIME: 00:00.0');
+
       if (playerEl) {
         playerEl.setAttribute('position', '0 -1.75 0');
       }
     }
 
-    // Start Game Trigger
-    startBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      audio.init();
+    // Global Trigger for Starting or Restarting Game (Works for both 2D and VR)
+    window.startOrRestartGame = function () {
+      window.audio.init();
       resetGame();
       startOverlay.classList.add('hidden');
+      if (vrMenuPanel) vrMenuPanel.setAttribute('visible', 'false');
+
       statusValEl.textContent = 'ACTIVE';
-      active = true;
+      if (vrStatusText) vrStatusText.setAttribute('text', 'value', 'STATUS: ACTIVE');
+
+      window.gameState.active = true;
       lastTime = performance.now();
       requestAnimationFrame(gameLoop);
+    };
+
+    startBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      window.startOrRestartGame();
     });
 
     function spawnObstacle() {
-      const spawnX = (Math.random() - 0.5) * (BOUNDS_X * 2);
-      const speed = 5.0 + Math.random() * 3.0 + Math.min(score * 0.05, 6.0);
+      const spawnX = (Math.random() - 0.5) * (window.BOUNDS_X * 2);
+      const speed = 5.0 + Math.random() * 3.0 + Math.min(window.gameState.score * 0.05, 6.0);
       const radius = 0.35 + Math.random() * 0.2;
       const spawnY = 5.2;
       const color = SPHERE_COLORS[Math.floor(Math.random() * SPHERE_COLORS.length)];
@@ -473,15 +584,27 @@
     }
 
     function gameOver() {
-      audio.playHitSound();
-      active = false;
+      window.audio.playHitSound();
+      window.gameState.active = false;
       isPointerDragging = false;
+
       statusValEl.textContent = 'GAME OVER';
-      overlaySubtitle.textContent = `Collision detected! You survived ${survivalTimer.toFixed(1)}s and reached ${Math.floor(score)} points.`;
-      scoreDisplay.textContent = Math.floor(score);
-      finalTimeEl.textContent = formatTime(survivalTimer);
+      if (vrStatusText) vrStatusText.setAttribute('text', 'value', 'STATUS: GAME OVER');
+
+      overlaySubtitle.textContent = `Collision detected! You survived ${window.gameState.survivalTimer.toFixed(1)}s and reached ${Math.floor(window.gameState.score)} points.`;
+      scoreDisplay.textContent = Math.floor(window.gameState.score);
+      finalTimeEl.textContent = formatTime(window.gameState.survivalTimer);
+
       startBtn.textContent = 'RESTART GAME';
-      startOverlay.classList.remove('hidden');
+      if (!window.gameState.isVR) {
+        startOverlay.classList.remove('hidden');
+      }
+
+      if (vrMenuPanel) {
+        const vrBtnText = vrStartBtn.querySelector('a-text');
+        if (vrBtnText) vrBtnText.setAttribute('value', 'RESTART GAME');
+        vrMenuPanel.setAttribute('visible', 'true');
+      }
     }
 
     // 2D Fallback renderer
@@ -502,7 +625,7 @@
       ctx2d.fillStyle = '#1a0c3b';
       ctx2d.fillRect(platX, platY, platW, 40);
 
-      const normX = (playerX + BOUNDS_X) / (BOUNDS_X * 2);
+      const normX = (window.gameState.playerX + window.BOUNDS_X) / (window.BOUNDS_X * 2);
       const playerPixelX = platX + normX * platW;
       const playerPixelY = platY - 5;
 
@@ -515,7 +638,7 @@
       ctx2d.fill();
 
       obstacles.forEach(obs => {
-        const normObsX = (obs.x + BOUNDS_X) / (BOUNDS_X * 2);
+        const normObsX = (obs.x + window.BOUNDS_X) / (window.BOUNDS_X * 2);
         const obsPixelX = platX + normObsX * platW;
         const normObsY = (5.2 - obs.y) / 7.2;
         const obsPixelY = (platY - 220) + normObsY * 220;
@@ -529,38 +652,46 @@
 
     // Main Game Loop
     function gameLoop(time) {
-      if (!active) return;
+      if (!window.gameState.active) return;
 
       const dt = Math.min((time - lastTime) / 1000, 0.1);
       lastTime = time;
 
       let moveDir = 0;
 
-      // Keyboard & On-Screen Touch Buttons (used if pointer isn't dragging)
+      // Keyboard & Touch Controls (active if pointer isn't dragging)
       if (!isPointerDragging) {
         if (keys.KeyA || keys.ArrowLeft || touchLeft) moveDir -= 1;
         if (keys.KeyD || keys.ArrowRight || touchRight) moveDir += 1;
 
         if (moveDir !== 0) {
-          playerX += moveDir * PLAYER_SPEED * dt;
-          playerX = Math.max(-BOUNDS_X, Math.min(BOUNDS_X, playerX));
-          audio.playMoveSound();
+          window.gameState.playerX += moveDir * window.PLAYER_SPEED * dt;
+          window.gameState.playerX = Math.max(-window.BOUNDS_X, Math.min(window.BOUNDS_X, window.gameState.playerX));
+          window.audio.playMoveSound();
         }
       }
 
       if (playerEl) {
-        playerEl.setAttribute('position', `${playerX} -1.75 0`);
+        playerEl.setAttribute('position', `${window.gameState.playerX} -1.75 0`);
         playerEl.setAttribute('rotation', `0 0 ${-moveDir * 15}`);
       }
 
-      survivalTimer += dt;
-      score += dt * 15;
+      window.gameState.survivalTimer += dt;
+      window.gameState.score += dt * 15;
 
-      hudTimerEl.textContent = formatTime(survivalTimer);
-      hudScoreEl.textContent = Math.floor(score).toString();
+      const formattedTime = formatTime(window.gameState.survivalTimer);
+      const formattedScore = Math.floor(window.gameState.score).toString();
+
+      // Update 2D HUD
+      hudTimerEl.textContent = formattedTime;
+      hudScoreEl.textContent = formattedScore;
+
+      // Update VR 3D HUD
+      if (vrTimerText) vrTimerText.setAttribute('text', 'value', `TIME: ${formattedTime}`);
+      if (vrScoreText) vrScoreText.setAttribute('text', 'value', `SCORE: ${formattedScore}`);
 
       spawnTimer += dt;
-      spawnInterval = Math.max(0.25, 1.0 - survivalTimer * 0.015);
+      spawnInterval = Math.max(0.25, 1.0 - window.gameState.survivalTimer * 0.015);
 
       if (spawnTimer >= spawnInterval) {
         spawnTimer = 0;
@@ -576,7 +707,7 @@
           obs.el.setAttribute('position', `${obs.x} ${obs.y} 0`);
         }
 
-        const dx = playerX - obs.x;
+        const dx = window.gameState.playerX - obs.x;
         const dy = playerY - obs.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
@@ -597,9 +728,27 @@
       requestAnimationFrame(gameLoop);
     }
 
-    // Fallback mode check
+    // VR MODE ENTER / EXIT EVENT HANDLERS
     const sceneEl = document.querySelector('a-scene');
     if (sceneEl) {
+      sceneEl.addEventListener('enter-vr', () => {
+        window.gameState.isVR = true;
+        // Hide 2D HTML overlay in VR to avoid obscuring immersive view
+        uiContainer.classList.add('opacity-0', 'pointer-events-none');
+        if (vrMenuPanel && !window.gameState.active) {
+          vrMenuPanel.setAttribute('visible', 'true');
+        }
+      });
+
+      sceneEl.addEventListener('exit-vr', () => {
+        window.gameState.isVR = false;
+        // Restore 2D overlay when exiting VR
+        uiContainer.classList.remove('opacity-0', 'pointer-events-none');
+        if (!window.gameState.active) {
+          startOverlay.classList.remove('hidden');
+        }
+      });
+
       sceneEl.addEventListener('render-error', () => {
         isFallbackMode = true;
       });
