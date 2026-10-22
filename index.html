@@ -347,13 +347,15 @@
     // --- GLOBAL GAME STATE & CONSTANTS ---
     window.BOUNDS_X = 4.5;
     window.PLAYER_SPEED = 12.0;
+    const WIN_TIME = 60; // Target survival time in seconds
 
     window.gameState = {
       active: false,
       playerX: 0,
       score: 0,
       survivalTimer: 0,
-      isVR: false
+      isVR: false,
+      hasWon: false
     };
 
     let lastTime = performance.now();
@@ -412,6 +414,31 @@
           gain.connect(this.ctx.destination);
           osc.start();
           osc.stop(this.ctx.currentTime + 0.3);
+        } catch(e) {}
+      },
+      playWinSound() {
+        if (!this.ctx || this.ctx.state !== 'running') return;
+        try {
+          // Play a triumphant synth arpeggio chord (C4, E4, G4, C5)
+          const notes = [261.63, 329.63, 392.00, 523.25, 659.25];
+          notes.forEach((freq, index) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            const startTime = this.ctx.currentTime + index * 0.08;
+
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, startTime);
+
+            gain.gain.setValueAtTime(0, startTime);
+            gain.gain.linearRampToValueAtTime(0.15, startTime + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.4);
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+
+            osc.start(startTime);
+            osc.stop(startTime + 0.4);
+          });
         } catch(e) {}
       }
     };
@@ -493,17 +520,8 @@
       isPointerDragging = true;
       window.audio.init();
       updatePositionFromPointer(e.clientX);
-    });
-
-    window.addEventListener('pointermove', (e) => {
-      if (isPointerDragging && window.gameState.active) {
-        updatePositionFromPointer(e.clientX);
-      }
-    });
-
-    const stopPointerDrag = () => { isPointerDragging = false; };
-    window.addEventListener('pointerup', stopPointerDrag);
-    window.addEventListener('pointercancel', stopPointerDrag);
+    const statusValEl = document.getElementById('status-val');
+    const overlayTitle = document.querySelector('#start-overlay h1');
 
     // Reset Game State
     function resetGame() {
@@ -517,13 +535,21 @@
       window.gameState.playerX = 0;
       window.gameState.score = 0;
       window.gameState.survivalTimer = 0;
+      window.gameState.hasWon = false;
       spawnTimer = 0;
       spawnInterval = 1.0;
       isPointerDragging = false;
 
+      statusValEl.textContent = 'READY';
+      if (overlayTitle) {
+        overlayTitle.textContent = 'CYBER DODGE';
+        overlayTitle.className = "text-4xl sm:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-pink-500 to-yellow-400 mb-2 glow-text-pink";
+      }
+
       hudScoreEl.textContent = "0";
       hudTimerEl.textContent = "00:00.0";
 
+      if (vrStatusText) vrStatusText.setAttribute('text', 'value', 'STATUS: READY');
       if (vrScoreText) vrScoreText.setAttribute('text', 'value', 'SCORE: 0');
       if (vrTimerText) vrTimerText.setAttribute('text', 'value', 'TIME: 00:00.0');
 
@@ -539,6 +565,7 @@
       startOverlay.classList.add('hidden');
       if (vrMenuPanel) vrMenuPanel.setAttribute('visible', 'false');
 
+      statusValEl.textContent = 'ACTIVE';
       if (vrStatusText) vrStatusText.setAttribute('text', 'value', 'STATUS: ACTIVE');
 
       window.gameState.active = true;
@@ -583,7 +610,13 @@
       window.gameState.active = false;
       isPointerDragging = false;
 
+      statusValEl.textContent = 'GAME OVER';
       if (vrStatusText) vrStatusText.setAttribute('text', 'value', 'STATUS: GAME OVER');
+
+      if (overlayTitle) {
+        overlayTitle.textContent = 'GAME OVER';
+        overlayTitle.className = "text-4xl sm:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-pink-500 to-yellow-400 mb-2 glow-text-pink";
+      }
 
       overlaySubtitle.textContent = `Collision detected! You survived ${window.gameState.survivalTimer.toFixed(1)}s and reached ${Math.floor(window.gameState.score)} points.`;
       scoreDisplay.textContent = Math.floor(window.gameState.score);
@@ -601,47 +634,37 @@
       }
     }
 
-    // 2D Fallback renderer
-    function drawFallbackFrame() {
-      if (!isFallbackMode) return;
-      fallbackCanvas.style.display = 'block';
+    function winGame() {
+      window.audio.playWinSound();
+      window.gameState.active = false;
+      window.gameState.hasWon = true;
+      isPointerDragging = false;
 
-      const w = fallbackCanvas.width = window.innerWidth;
-      const h = fallbackCanvas.height = window.innerHeight;
+      // Cap survival timer to exactly 60 seconds
+      window.gameState.survivalTimer = WIN_TIME;
 
-      ctx2d.fillStyle = '#08041d';
-      ctx2d.fillRect(0, 0, w, h);
+      statusValEl.textContent = 'VICTORY';
+      if (vrStatusText) vrStatusText.setAttribute('text', 'value', 'STATUS: VICTORY!');
 
-      const platY = h * 0.75;
-      const platW = w * 0.7;
-      const platX = (w - platW) / 2;
+      if (overlayTitle) {
+        overlayTitle.textContent = 'YOU WIN!';
+        overlayTitle.className = "text-4xl sm:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-emerald-400 to-cyan-400 mb-2 glow-text-cyan";
+      }
 
-      ctx2d.fillStyle = '#1a0c3b';
-      ctx2d.fillRect(platX, platY, platW, 40);
+      overlaySubtitle.textContent = `VICTORY achieved! You survived the full 60 seconds!`;
+      scoreDisplay.textContent = Math.floor(window.gameState.score);
+      finalTimeEl.textContent = formatTime(WIN_TIME);
 
-      const normX = (window.gameState.playerX + window.BOUNDS_X) / (window.BOUNDS_X * 2);
-      const playerPixelX = platX + normX * platW;
-      const playerPixelY = platY - 5;
+      startBtn.textContent = 'PLAY AGAIN';
+      if (!window.gameState.isVR) {
+        startOverlay.classList.remove('hidden');
+      }
 
-      ctx2d.fillStyle = '#00ffff';
-      ctx2d.beginPath();
-      ctx2d.moveTo(playerPixelX, playerPixelY - 35);
-      ctx2d.lineTo(playerPixelX - 18, playerPixelY);
-      ctx2d.lineTo(playerPixelX + 18, playerPixelY);
-      ctx2d.closePath();
-      ctx2d.fill();
-
-      obstacles.forEach(obs => {
-        const normObsX = (obs.x + window.BOUNDS_X) / (window.BOUNDS_X * 2);
-        const obsPixelX = platX + normObsX * platW;
-        const normObsY = (5.2 - obs.y) / 7.2;
-        const obsPixelY = (platY - 220) + normObsY * 220;
-
-        ctx2d.fillStyle = obs.color;
-        ctx2d.beginPath();
-        ctx2d.arc(obsPixelX, obsPixelY, obs.radius * 25, 0, Math.PI * 2);
-        ctx2d.fill();
-      });
+      if (vrMenuPanel) {
+        const vrBtnText = vrStartBtn.querySelector('a-text');
+        if (vrBtnText) vrBtnText.setAttribute('value', 'PLAY AGAIN');
+        vrMenuPanel.setAttribute('visible', 'true');
+      }
     }
 
     // Main Game Loop
@@ -672,6 +695,12 @@
 
       window.gameState.survivalTimer += dt;
       window.gameState.score += dt * 15;
+
+      // CHECK WIN CONDITION (1 minute / 60 seconds)
+      if (window.gameState.survivalTimer >= WIN_TIME) {
+        winGame();
+        return;
+      }
 
       const formattedTime = formatTime(window.gameState.survivalTimer);
       const formattedScore = Math.floor(window.gameState.score).toString();
