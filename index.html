@@ -419,7 +419,6 @@
       playWinSound() {
         if (!this.ctx || this.ctx.state !== 'running') return;
         try {
-          // Play a triumphant synth arpeggio chord (C4, E4, G4, C5)
           const notes = [261.63, 329.63, 392.00, 523.25, 659.25];
           notes.forEach((freq, index) => {
             const osc = this.ctx.createOscillator();
@@ -467,6 +466,8 @@
     const btnRight = document.getElementById('btn-right');
     const fallbackCanvas = document.getElementById('fallback-canvas');
     const ctx2d = fallbackCanvas.getContext('2d');
+    const statusValEl = document.getElementById('status-val');
+    const overlayTitle = document.querySelector('#start-overlay h1');
 
     // 3D VR HUD Elements
     const vrStatusText = document.getElementById('vr-status-text');
@@ -520,8 +521,17 @@
       isPointerDragging = true;
       window.audio.init();
       updatePositionFromPointer(e.clientX);
-    const statusValEl = document.getElementById('status-val');
-    const overlayTitle = document.querySelector('#start-overlay h1');
+    });
+
+    window.addEventListener('pointermove', (e) => {
+      if (isPointerDragging) {
+        updatePositionFromPointer(e.clientX);
+      }
+    });
+
+    window.addEventListener('pointerup', () => {
+      isPointerDragging = false;
+    });
 
     // Reset Game State
     function resetGame() {
@@ -665,6 +675,38 @@
         if (vrBtnText) vrBtnText.setAttribute('value', 'PLAY AGAIN');
         vrMenuPanel.setAttribute('visible', 'true');
       }
+    }
+
+    function drawFallbackFrame() {
+      if (!isFallbackMode) return;
+      fallbackCanvas.style.display = 'block';
+      fallbackCanvas.width = window.innerWidth;
+      fallbackCanvas.height = window.innerHeight;
+
+      ctx2d.fillStyle = '#050312';
+      ctx2d.fillRect(0, 0, fallbackCanvas.width, fallbackCanvas.height);
+
+      const cx = fallbackCanvas.width / 2;
+      const cy = fallbackCanvas.height / 2;
+      const scale = fallbackCanvas.width / 12;
+
+      // Draw Player
+      const px = cx + window.gameState.playerX * scale;
+      const py = cy + 1.75 * scale;
+      ctx2d.fillStyle = '#00ffff';
+      ctx2d.beginPath();
+      ctx2d.arc(px, py, scale * 0.4, 0, Math.PI * 2);
+      ctx2d.fill();
+
+      // Draw Obstacles
+      obstacles.forEach(obs => {
+        const ox = cx + obs.x * scale;
+        const oy = cy - obs.y * scale;
+        ctx2d.fillStyle = obs.color;
+        ctx2d.beginPath();
+        ctx2d.arc(ox, oy, obs.radius * scale, 0, Math.PI * 2);
+        ctx2d.fill();
+      });
     }
 
     // Main Game Loop
